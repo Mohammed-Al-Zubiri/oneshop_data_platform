@@ -1,0 +1,71 @@
+# ============================================================
+# OneShop — BI & Visualization Services
+# Apache Superset: Dashboards and analytics
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Apache Superset
+  # ----------------------------------------------------------
+  superset:
+    build:
+      context: ./superset
+    container_name: superset
+    hostname: superset
+    profiles: ["bi", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg2://superset:superset@superset-db:5432/superset
+    volumes:
+      - superset_home:/app/superset_home
+    command: >
+      /bin/sh -c "
+        superset db upgrade &&
+        superset fab create-admin --username ${SUPERSET_ADMIN_USER} --firstname Superset --lastname Admin --email ${SUPERSET_ADMIN_EMAIL} --password ${SUPERSET_ADMIN_PASSWORD} || true &&
+        superset init &&
+        superset set_database_uri -d Trino -u trino://admin@trino:8080/iceberg &&
+        superset run -h 0.0.0.0 -p 8088
+      "
+    depends_on:
+      superset-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "/app/docker/docker-healthcheck.sh"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 4m
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Superset Metadata DB
+  # ----------------------------------------------------------
+  superset-db:
+    image: postgres:15-alpine
+    container_name: superset-db
+    hostname: superset-db
+    profiles: ["bi", "batch"]
+    networks:
+      - oneshop-network
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    volumes:
+      - superset_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  superset_home:
+  superset_db_data:

@@ -1,0 +1,119 @@
+# ============================================================
+# OneShop — Observability Profile Services
+# Prometheus + Grafana
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+
+  # ----------------------------------------------------------
+  # Prometheus (Metrics collection)
+  # ----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    hostname: prometheus
+    profiles: ["observability"]
+    networks:
+      - oneshop-network
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Alertmanager (Routing alerts)
+  # ----------------------------------------------------------
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    hostname: alertmanager
+    profiles: ["observability"]
+    networks:
+      - oneshop-network
+    ports:
+      - "9094:9093"
+    volumes:
+      - ./monitoring/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Grafana (Dashboards & Visualization)
+  # ----------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    hostname: grafana
+    profiles: ["observability"]
+    networks:
+      - oneshop-network
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Kafka Exporter — Consumer Lag Observability
+  # Queries Kafka's broker offset coordinator to calculate the
+  # delta between latest log offsets and committed group offsets.
+  # Gives a broker-authoritative lag view that remains accurate
+  # even if a consumer (Flink, ClickHouse) crashes or hangs.
+  # ----------------------------------------------------------
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: kafka-exporter
+    hostname: kafka-exporter
+    profiles: ["observability"]
+    networks:
+      - oneshop-network
+    ports:
+      - "9308:9308"
+    command:
+      - "--kafka.server=kafka:9092"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # StatsD Exporter — Airflow Metrics Protocol Bridge
+  # Airflow is push-based (fires fire-and-forget UDP StatsD
+  # packets). Prometheus is pull-based (scrapes HTTP endpoints).
+  # This bridge aggregates incoming UDP packets from Airflow
+  # in-memory and exposes them as a scrapeable /metrics endpoint.
+  # ----------------------------------------------------------
+  statsd-exporter:
+    image: prom/statsd-exporter:v0.26.0
+    container_name: statsd-exporter
+    hostname: statsd-exporter
+    profiles: ["observability"]
+    networks:
+      - oneshop-network
+    ports:
+      - "9102:9102"      # Prometheus scrape endpoint
+      - "8125:8125/udp"  # StatsD UDP listener (Airflow pushes here)
+    command:
+      - "--statsd.listen-udp=:8125"   # Override default :9125 to match Airflow's STATSD_PORT
+      - "--web.listen-address=:9102"  # Prometheus scrape endpoint
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

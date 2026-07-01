@@ -1,0 +1,52 @@
+# Environment & Secrets
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Java/Spark
+*.jar
+*.class
+target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes & data
+warehouse/
+superset/superset_db_data/
+superset/superset_home/
+airflow/logs/
+airflow/plugins/__pycache__/
+monitoring/grafana/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Spark checkpoints
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Great Expectations
+great-expectations/uncommitted/
+great-expectations/data_docs/
+
+# Temporary files
+*.tmp
+*.bak
+
+# MkDocs
+docs/site/

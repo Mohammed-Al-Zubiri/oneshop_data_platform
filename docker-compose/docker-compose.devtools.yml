@@ -1,0 +1,58 @@
+# ============================================================
+# OneShop — Developer Tools
+# Redpanda Console (Kafka browser) + MailHog (Email testing)
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Unified Data Generator (Run-on-demand CLI tool)
+  # ----------------------------------------------------------
+  data-generator:
+    build:
+      context: ./data-generator
+    container_name: data-generator
+    profiles: ["cli"]
+    networks:
+      - oneshop-network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_HOST: minio:9000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./data-generator:/app
+
+  # ----------------------------------------------------------
+  # Redpanda Console (Kafka topic browser)
+  # ----------------------------------------------------------
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: redpanda-console
+    profiles: ["devtools", "realtime"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://schema-registry:8081
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MailHog (Email testing for Airflow)
+  # ----------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    networks:
+      - oneshop-network
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI

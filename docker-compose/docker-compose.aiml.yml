@@ -1,0 +1,57 @@
+# ============================================================
+# OneShop — AI/ML Profile Services
+# Flask Recommendation API, Streamlit Semantic Search
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Flask — Product Recommendation API (Chapter 9)
+  # ----------------------------------------------------------
+  flask-recommendation:
+    build:
+      context: ./flask
+    container_name: flask-recommendation
+    hostname: flask-recommendation
+    profiles: ["ai-ml"]
+    networks:
+      - oneshop-network
+    ports:
+      - "${FLASK_PORT}:5050"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Streamlit — Semantic Search UI (Chapter 10)
+  # ----------------------------------------------------------
+  streamlit-search:
+    build:
+      context: ./streamlit
+      dockerfile: Dockerfile.search
+    container_name: streamlit-search
+    hostname: streamlit-search
+    profiles: ["ai-ml"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8502:8501"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./streamlit/embedding_generator.py:/app/embedding_generator.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped

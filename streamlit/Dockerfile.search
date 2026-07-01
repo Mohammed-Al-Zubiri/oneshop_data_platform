@@ -1,0 +1,18 @@
+# Semantic Search UI — connects to Postgres pgvector
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install CPU-specific torch first, then the rest
+RUN pip install --no-cache-dir torch==2.2.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
+pip install --no-cache-dir \
+    streamlit==1.38.0 \
+    pandas==2.2.2 \
+    psycopg2-binary==2.9.9 \
+    sentence-transformers==3.0.1
+
+COPY semantic_search_app.py /app/app.py
+COPY embedding_generator.py /app/embedding_generator.py
+
+EXPOSE 8501
+CMD ["streamlit", "run", "/app/app.py", "--server.port=8501", "--server.headless=true"]

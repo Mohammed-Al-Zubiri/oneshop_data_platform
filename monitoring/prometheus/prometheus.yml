@@ -1,0 +1,54 @@
+# ============================================================
+# Prometheus Configuration
+# ============================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Kafka JMX (Java Agent on port 7071 — jmx_prometheus_javaagent v1.0.1)
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["kafka:7071"]
+    metrics_path: /metrics  # Required for jmx_prometheus_javaagent >= 1.0.0
+
+  # Flink metrics (native Prometheus reporter — JobManager + TaskManager)
+  - job_name: "flink"
+    static_configs:
+      - targets: ["flink-jobmanager:9249", "flink-taskmanager:9249"]
+    metrics_path: /
+
+  # Airflow StatsD bridge (statsd-exporter aggregates UDP → HTTP /metrics)
+  - job_name: "airflow"
+    static_configs:
+      - targets: ["statsd-exporter:9102"]
+
+  # Kafka Consumer Lag (per consumer-group, per-partition delta)
+  - job_name: "kafka-exporter"
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
+
+  # ClickHouse native Prometheus endpoint
+  - job_name: "clickhouse"
+    static_configs:
+      - targets: ["clickhouse:9363"]
+    metrics_path: /metrics
+
+  # Flask health endpoint
+  - job_name: "flask-recommendation"
+    static_configs:
+      - targets: ["flask-recommendation:5050"]
+    metrics_path: /metrics

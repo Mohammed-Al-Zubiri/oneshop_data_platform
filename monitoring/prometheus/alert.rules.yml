@@ -1,0 +1,60 @@
+groups:
+  - name: KafkaAlerts
+    rules:
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_ReplicaManager_UnderReplicatedPartitions > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka Under Replicated Partitions (broker {{ $labels.instance }})"
+          description: "Kafka broker {{ $labels.instance }} has {{ $value }} under-replicated partitions."
+
+      - alert: KafkaActiveControllerMissing
+        expr: sum(kafka_controller_KafkaController_ActiveControllerCount) != 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka cluster does not have exactly 1 active controller."
+
+      - alert: HighConsumerLagGrowing
+        # Alert if lag > 5000 and growth rate > 0
+        expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 5000 and deriv(sum by (consumergroup, topic) (kafka_consumergroup_lag)[5m:]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka Consumer Lag High & Growing (Group: {{ $labels.consumergroup }})"
+          description: "Consumer group {{ $labels.consumergroup }} on topic {{ $labels.topic }} has lag {{ $value }} and is falling behind."
+
+  - name: FlinkAlerts
+    rules:
+      - alert: FlinkJobRestarting
+        expr: increase(flink_jobmanager_job_numRestarts[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Flink Job Restarting ({{ $labels.job_name }})"
+          description: "Flink job {{ $labels.job_name }} has restarted in the last 5 minutes."
+
+  - name: ClickHouseAlerts
+    rules:
+      - alert: ClickHouseReplicationLag
+        expr: ClickHouseAsyncMetrics_ReplicasMaxRelativeDelay > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ClickHouse replication lag is high"
+          description: "Replication lag is {{ $value }} seconds."
+
+      - alert: ClickHouseHighMemoryUsage
+        expr: ClickHouseMetrics_MemoryTracking / ClickHouseAsyncMetrics_OSMemoryTotal > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ClickHouse memory usage is high (>85%)"
+          description: "ClickHouse is using {{ $value | humanizePercentage }} of total OS memory. Risk of OOM eviction."

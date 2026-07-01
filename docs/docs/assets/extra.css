@@ -1,0 +1,122 @@
+/* ============================================================
+   OneShop Data Platform — MkDocs custom styles
+   ============================================================ */
+
+/* ── Hero gradient on home page ── */
+.hero-banner {
+  background: linear-gradient(135deg, #1a1f3a 0%, #0d3b6e 50%, #0a6b8a 100%);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  margin-bottom: 2rem;
+  color: #fff;
+  text-align: center;
+}
+
+.hero-banner h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.5rem;
+  color: #fff !important;
+  border: none !important;
+}
+
+.hero-banner .subtitle {
+  font-size: 1.1rem;
+  opacity: 0.85;
+  max-width: 640px;
+  margin: 0 auto 1.5rem;
+}
+
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.hero-badge {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.03em;
+}
+
+/* ── Layer/feature card grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
+
+.card-icon {
+  font-size: 1.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.card h4 {
+  margin: 0.3rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.card p {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+/* ── Command reference tables ── */
+.command-table td:first-child code {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ── Subtle section dividers ── */
+.md-content hr {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  margin: 2.5rem 0;
+}
+
+/* ── Better admonition colours in dark mode ── */
+[data-md-color-scheme="slate"] .admonition.tip {
+  border-color: #26d97f;
+}
+
+[data-md-color-scheme="slate"] .admonition.warning {
+  border-color: #f5b942;
+}
+
+/* ── Pipeline flow diagram text ── */
+.pipeline-code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+/* ── Architecture Diagrams ── */
+.md-content img[src*="diagrams/"] {
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  display: block;
+  margin: 0 auto;
+}
+

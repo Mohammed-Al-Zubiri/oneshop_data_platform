@@ -1,0 +1,54 @@
+# ============================================================
+# OneShop — Stream Processing Services
+# Apache Flink: Real-time event processing
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Apache Flink — JobManager
+  # ----------------------------------------------------------
+  flink-jobmanager:
+    build: ./flink
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    profiles: ["stream-processing", "realtime"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8084:8081"
+      - "9249:9249"   # Prometheus metrics endpoint
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - ./flink/sql:/opt/flink/sql
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Apache Flink — TaskManager
+  # ----------------------------------------------------------
+  flink-taskmanager:
+    build: ./flink
+    container_name: flink-taskmanager
+    hostname: flink-taskmanager
+    profiles: ["stream-processing", "realtime"]
+    networks:
+      - oneshop-network
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 20
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    depends_on:
+      - flink-jobmanager
+    restart: unless-stopped

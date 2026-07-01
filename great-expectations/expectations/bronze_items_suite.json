@@ -1,0 +1,39 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "bronze_items_suite",
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {
+        "notes": "Every item record must have a non-null primary key."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "category"
+      },
+      "meta": {
+        "notes": "Category must be present for downstream partitioning."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "price",
+        "min_value": 0,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Price must be non-negative."
+      }
+    }
+  ],
+  "ge_cloud_id": null,
+  "meta": {
+    "great_expectations_version": "0.18.21"
+  }
+}

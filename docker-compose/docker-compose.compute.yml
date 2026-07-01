@@ -1,0 +1,107 @@
+# ============================================================
+# OneShop — Compute Services
+# Apache Spark + Iceberg: Batch ETL engine
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Apache Spark + Iceberg + Jupyter Notebooks
+  # ----------------------------------------------------------
+  spark-lab:
+    build:
+      context: ./spark
+    container_name: spark-lab
+    hostname: spark-lab
+    profiles: ["compute", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8888:8888"   # Jupyter
+      - "8080:8080"   # Spark UI
+      - "10000:10000" # Thrift
+      - "10001:10001"
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+    volumes:
+      - ./spark/scripts:/home/iceberg/pyspark/scripts
+      - ./spark/notebooks:/home/iceberg/notebooks/notebooks
+      - ./spark/jars:/home/iceberg/pyspark/jars
+      - ./warehouse:/home/iceberg/warehouse
+      - ./great-expectations:/home/iceberg/great-expectations
+      - spark_jars:/opt/spark/jars
+    depends_on:
+      spark-master:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Apache Spark Standalone Cluster (Master)
+  # ----------------------------------------------------------
+  spark-master:
+    build:
+      context: ./spark
+    container_name: spark-master
+    hostname: spark-master
+    profiles: ["compute", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "7077:7077"   # Spark Master URI
+      - "8282:8282"   # Spark Master UI
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+    command: >
+      bash -c "
+        export SPARK_MASTER_HOST=spark-master &&
+        export SPARK_MASTER_PORT=7077 &&
+        export SPARK_MASTER_WEBUI_PORT=8282 &&
+        /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      "
+    volumes:
+      - ./spark/scripts:/home/iceberg/pyspark/scripts
+      - ./spark/jars:/home/iceberg/pyspark/jars
+      - ./warehouse:/home/iceberg/warehouse
+      - spark_jars:/opt/spark/jars
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Apache Spark Standalone Cluster (Worker)
+  # ----------------------------------------------------------
+  spark-worker:
+    build:
+      context: ./spark
+    container_name: spark-worker
+    hostname: spark-worker
+    profiles: ["compute", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8383:8383"   # Spark Worker UI
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+    command: >
+      bash -c "
+        export SPARK_WORKER_WEBUI_PORT=8383 &&
+        /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+      "
+    volumes:
+      - ./spark/scripts:/home/iceberg/pyspark/scripts
+      - ./spark/jars:/home/iceberg/pyspark/jars
+      - ./warehouse:/home/iceberg/warehouse
+      - spark_jars:/opt/spark/jars
+    depends_on:
+      spark-master:
+        condition: service_started
+    restart: unless-stopped

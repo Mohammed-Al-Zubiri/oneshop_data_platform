@@ -1,0 +1,10 @@
+name: bronze_purchases_checkpoint
+config_version: 1.0
+class_name: SimpleCheckpoint
+run_name_template: "%Y%m%d-%H%M%S-bronze-purchases"
+validations:
+  - batch_request:
+      datasource_name: spark_datasource
+      data_connector_name: runtime_data_connector
+      data_asset_name: bronze_purchases
+    expectation_suite_name: bronze_purchases_suite

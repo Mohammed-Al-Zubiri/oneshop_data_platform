@@ -1,0 +1,237 @@
+# ============================================================
+# OneShop Data Platform — Core Infrastructure
+# Always-on foundation: Postgres, Kafka (KRaft), MinIO, Iceberg Catalog
+# ============================================================
+name: oneshop-platform
+
+# ============================================================
+# MODULE INCLUDES — each file is an independent, toggleable capability
+# ============================================================
+include:
+  # Core Tier 2: Workflow backbone
+  - path: docker-compose/docker-compose.orchestration.yml
+    project_directory: .
+  # Ingestion: CDC pipeline framework
+  - path: docker-compose/docker-compose.cdc.yml
+    project_directory: .
+  # Batch modules
+  - path: docker-compose/docker-compose.compute.yml
+    project_directory: .
+  - path: docker-compose/docker-compose.query.yml
+    project_directory: .
+  - path: docker-compose/docker-compose.bi.yml
+    project_directory: .
+  # Realtime modules
+  - path: docker-compose/docker-compose.streaming.yml
+    project_directory: .
+  - path: docker-compose/docker-compose.olap.yml
+    project_directory: .
+  - path: docker-compose/docker-compose.search.yml
+    project_directory: .
+  # AI/ML
+  - path: docker-compose/docker-compose.aiml.yml
+    project_directory: .
+  # Operations
+  - path: docker-compose/docker-compose.observability.yml
+    project_directory: .
+  - path: docker-compose/docker-compose.devtools.yml
+    project_directory: .
+  # Integration Tests
+  - path: docker-compose/docker-compose.test.yml
+    project_directory: .
+
+# ============================================================
+# SHARED NETWORK
+# ============================================================
+networks:
+  oneshop-network:
+    driver: bridge
+
+# ============================================================
+# CORE SERVICES (always active — Tier 1 Infrastructure)
+# ============================================================
+services:
+
+  # ----------------------------------------------------------
+  # PostgreSQL (OLTP + pgvector) — debezium image for WAL/CDC
+  # ----------------------------------------------------------
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: postgres
+    hostname: postgres
+    networks:
+      - oneshop-network
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Apache Kafka (KRaft mode — no Zookeeper)
+  # ----------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    hostname: kafka
+    networks:
+      - oneshop-network
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "7071:7071"  # Prometheus JMX Exporter
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar=7071:/opt/jmx-exporter/kafka-metrics.yml"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+      - ./monitoring/prometheus/jmx_prometheus_javaagent.jar:/opt/jmx-exporter/jmx_prometheus_javaagent.jar
+      - ./monitoring/prometheus/kafka-metrics.yml:/opt/jmx-exporter/kafka-metrics.yml
+    healthcheck:
+      test: ["CMD-SHELL", "KAFKA_OPTS='' /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Schema Registry (JSON Schema / Avro enforcement)
+  # ----------------------------------------------------------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: schema-registry
+    hostname: schema-registry
+    networks:
+      - oneshop-network
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MinIO (S3-compatible Object Storage — Data Lake)
+  # ----------------------------------------------------------
+  minio:
+    image: minio/minio
+    container_name: minio
+    hostname: minio
+    networks:
+      oneshop-network:
+        aliases:
+          - warehouse.minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_DOMAIN: minio
+    volumes:
+      - minio_data:/data
+    command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MinIO Client — Bucket initialization
+  # ----------------------------------------------------------
+  mc:
+    image: minio/mc
+    container_name: mc
+    networks:
+      - oneshop-network
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}) do echo '...waiting for MinIO...' && sleep 2; done;
+      /usr/bin/mc mb --ignore-existing minio/warehouse;
+      /usr/bin/mc mb --ignore-existing minio/pageviews;
+      /usr/bin/mc mb --ignore-existing minio/customer-segments;
+      /usr/bin/mc policy set public minio/warehouse;
+      /usr/bin/mc policy set public minio/pageviews;
+      echo 'MinIO buckets initialized successfully.';
+      tail -f /dev/null
+      "
+
+  # ----------------------------------------------------------
+  # Iceberg REST Catalog
+  # ----------------------------------------------------------
+  iceberg-catalog:
+    image: tabulario/iceberg-rest:1.6.0
+    container_name: iceberg-catalog
+    hostname: iceberg-catalog
+    networks:
+      - oneshop-network
+    ports:
+      - "8181:8181"
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+      CATALOG_WAREHOUSE: ${ICEBERG_WAREHOUSE}
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: ${MINIO_ENDPOINT}
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
+volumes:
+  postgres_data:
+  kafka_data:
+  minio_data:
+  spark_jars:

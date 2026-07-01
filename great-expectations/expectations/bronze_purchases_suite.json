@@ -1,0 +1,41 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "bronze_purchases_suite",
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {
+        "notes": "Every purchase record must have a non-null primary key."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "quantity",
+        "min_value": 1,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Quantity must be strictly greater than 0 — no zero or negative quantities allowed."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "purchase_price",
+        "min_value": 0,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Purchase price must be non-negative."
+      }
+    }
+  ],
+  "ge_cloud_id": null,
+  "meta": {
+    "great_expectations_version": "0.18.21"
+  }
+}

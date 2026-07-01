@@ -1,0 +1,31 @@
+# ============================================================
+# OneShop — Query Services
+# Trino: Federated SQL query engine
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Trino Query Engine
+  # ----------------------------------------------------------
+  trino:
+    image: trinodb/trino:439
+    container_name: trino
+    hostname: trino
+    profiles: ["query", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "9090:8080"
+      - "8443:8443"
+    volumes:
+      - ./trino/etc:/etc/trino
+    depends_on:
+      - iceberg-catalog
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/lib/trino/bin/health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped

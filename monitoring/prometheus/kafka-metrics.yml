@@ -1,0 +1,53 @@
+# ============================================================
+# Kafka JMX → Prometheus Metrics Rules
+# Strimzi-aligned filtering & transformation
+# ============================================================
+startDelaySeconds: 120
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # 1. Controller Metrics
+  #    Tracks whether this broker is the active controller and how many
+  #    partitions are offline (critical health signal).
+  - pattern: "kafka.controller<type=KafkaController, name=(ActiveControllerCount|OfflinePartitionsCount)><>Value"
+    name: "kafka_controller_$1"
+    type: GAUGE
+
+  # 2. Broker Topic Metrics (Bytes In/Out, Messages In, Failures)
+  #    Per-topic throughput and error rates — essential for capacity
+  #    planning and SLA monitoring.
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=(BytesInPerSec|BytesOutPerSec|MessagesInPerSec|FailedProduceRequestsPerSec|FailedFetchRequestsPerSec), topic=(.+)><>OneMinuteRate"
+    name: "kafka_server_brokertopicmetrics_$1"
+    labels:
+      topic: "$2"
+
+  # 3. Replica Manager (Under Replicated, Under Min ISR Partitions, Counts)
+  #    Indicates replication health; non-zero UnderReplicatedPartitions
+  #    signals a broker fault or network partition.
+  - pattern: "kafka.server<type=ReplicaManager, name=(UnderReplicatedPartitions|UnderMinIsrPartitionCount|PartitionCount|LeaderCount)><>Value"
+    name: "kafka_server_replicamanager_$1"
+    type: GAUGE
+
+  # 4. Request Metrics (Produce / Fetch request rates)
+  #    Measures client-facing request load — useful for detecting traffic
+  #    spikes and correlating with latency degradation.
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(Produce|FetchConsumer|FetchFollower)><>OneMinuteRate"
+    name: "kafka_network_requestmetrics_requests_per_sec"
+    labels:
+      request: "$1"
+
+  # 5. Request Handler Idle Percent
+  #    Tells if Kafka is CPU-saturated. Values consistently below 30%
+  #    indicate the broker is under heavy load.
+  - pattern: "kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>OneMinuteRate"
+    name: "kafka_server_requesthandlerpool_avg_idle_percent"
+    type: GAUGE
+
+  # 6. JVM Garbage Collection & Memory
+  #    GC pause time and frequency — high CollectionTime correlates
+  #    with request latency spikes inside the broker JVM.
+  - pattern: "java.lang<type=GarbageCollector, name=(.+)><>(CollectionCount|CollectionTime)"
+    name: "jvm_gc_$2"
+    labels:
+      gc: "$1"

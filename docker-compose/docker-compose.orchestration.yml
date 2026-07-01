@@ -1,0 +1,161 @@
+# ============================================================
+# OneShop — Orchestration Services (Core Tier 2)
+# Airflow: Workflow automation backbone
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Apache Airflow — Webserver
+  # ----------------------------------------------------------
+  airflow-webserver:
+    build:
+      context: ./airflow
+    container_name: airflow-webserver
+    hostname: airflow-webserver
+    user: root
+    profiles: ["orchestration", "batch"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8082:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW_CONN_TRINO_DEFAULT: "trino://admin@trino:8080"
+      AIRFLOW_CONN_SPARK_DEFAULT: '{"conn_type": "spark", "host": "spark://spark-master:7077"}'
+      AIRFLOW__SMTP__SMTP_HOST: mailhog
+      AIRFLOW__SMTP__SMTP_PORT: 1025
+      AIRFLOW__SMTP__SMTP_MAIL_FROM: airflow@oneshop.com
+      AIRFLOW__SMTP__SMTP_STARTTLS: "False"
+      AIRFLOW__SMTP__SMTP_SSL: "False"
+      AIRFLOW__SMTP__SMTP_USER: ""
+      AIRFLOW__SMTP__SMTP_PASSWORD: ""
+      # Metrics: push StatsD packets to statsd-exporter → Prometheus
+      AIRFLOW__METRICS__STATSD_ON: "True"
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: "8125"
+      AIRFLOW__METRICS__STATSD_PREFIX: airflow
+      AIRFLOW__METRICS__METRICS_USE_PATTERN_MATCH: "True"
+      # AWS Credentials for Spark/Iceberg/MinIO
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+      - ./spark/scripts:/opt/airflow/spark_scripts:ro
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./spark/log4j2.properties:/opt/spark/conf/log4j2.properties:ro
+      - spark_jars:/opt/spark/jars
+      - ./great-expectations:/home/iceberg/great-expectations
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --username $${AIRFLOW_ADMIN_USER} --password $${AIRFLOW_ADMIN_PASSWORD} --firstname Admin --lastname User --role Admin --email admin@oneshop.com || true &&
+        airflow webserver
+      "
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Apache Airflow — Scheduler
+  # ----------------------------------------------------------
+  airflow-scheduler:
+    build:
+      context: ./airflow
+    container_name: airflow-scheduler
+    hostname: airflow-scheduler
+    user: root
+    profiles: ["orchestration", "batch"]
+    networks:
+      - oneshop-network
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW_CONN_TRINO_DEFAULT: "trino://admin@trino:8080"
+      AIRFLOW_CONN_SPARK_DEFAULT: '{"conn_type": "spark", "host": "spark://spark-master:7077"}'
+      AIRFLOW__SMTP__SMTP_HOST: mailhog
+      AIRFLOW__SMTP__SMTP_PORT: 1025
+      AIRFLOW__SMTP__SMTP_MAIL_FROM: airflow@oneshop.com
+      AIRFLOW__SMTP__SMTP_STARTTLS: "False"
+      AIRFLOW__SMTP__SMTP_SSL: "False"
+      AIRFLOW__SMTP__SMTP_USER: ""
+      AIRFLOW__SMTP__SMTP_PASSWORD: ""
+      # Metrics: push StatsD packets to statsd-exporter → Prometheus
+      AIRFLOW__METRICS__STATSD_ON: "True"
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: "8125"
+      AIRFLOW__METRICS__STATSD_PREFIX: airflow
+      AIRFLOW__METRICS__METRICS_USE_PATTERN_MATCH: "True"
+      # AWS Credentials for Spark/Iceberg/MinIO
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+      - ./spark/scripts:/opt/airflow/spark_scripts:ro
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./spark/log4j2.properties:/opt/spark/conf/log4j2.properties:ro
+      - spark_jars:/opt/spark/jars
+      - ./great-expectations:/home/iceberg/great-expectations
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: airflow scheduler
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Airflow Metadata DB (separate from OLTP Postgres)
+  # ----------------------------------------------------------
+  airflow-db:
+    image: postgres:15-alpine
+    container_name: airflow-db
+    hostname: airflow-db
+    profiles: ["orchestration", "batch"]
+    networks:
+      - oneshop-network
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  airflow_logs:
+  airflow_db_data:

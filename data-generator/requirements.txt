@@ -1,0 +1,5 @@
+click==8.1.7
+faker==28.4.1
+psycopg2-binary==2.9.9
+minio==7.2.8
+confluent-kafka==2.5.3

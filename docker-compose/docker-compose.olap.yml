@@ -1,0 +1,54 @@
+# ============================================================
+# OneShop — OLAP Analytics Services
+# ClickHouse + Streamlit: Real-time analytics dashboard
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # ClickHouse (Real-time OLAP)
+  # ----------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1
+    container_name: clickhouse
+    hostname: clickhouse
+    profiles: ["olap", "realtime"]
+    networks:
+      - oneshop-network
+    environment:
+      - CLICKHOUSE_PASSWORD=mysecret
+    ports:
+      - "8123:8123"  # HTTP
+      - "9100:9000"  # Native (remapped to avoid Kafka conflict)
+    volumes:
+      - ./clickhouse/default-password.xml:/etc/clickhouse-server/users.d/default-password.xml
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./clickhouse/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Streamlit — Flash Sale Dashboard (connects to ClickHouse)
+  # ----------------------------------------------------------
+  streamlit-flash:
+    build:
+      context: ./streamlit
+      dockerfile: Dockerfile.flash
+    container_name: streamlit-flash
+    hostname: streamlit-flash
+    profiles: ["olap", "realtime"]
+    networks:
+      - oneshop-network
+    ports:
+      - "8501:8501"
+    depends_on:
+      - clickhouse
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:

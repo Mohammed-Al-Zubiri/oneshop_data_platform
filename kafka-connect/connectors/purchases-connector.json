@@ -1,0 +1,24 @@
+{
+    "name": "oneshop-postgres-purchases-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "database.hostname": "postgres",
+        "database.port": "5432",
+        "database.user": "postgresuser",
+        "database.password": "postgrespw",
+        "database.dbname": "oneshop",
+        "database.server.name": "oneshop",
+        "topic.prefix": "oneshop",
+        "table.include.list": "public.purchases",
+        "plugin.name": "pgoutput",
+        "slot.name": "debezium_purchases",
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter.schemas.enable": "false",
+        "snapshot.mode": "initial",
+        "transforms": "unwrap",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "decimal.handling.mode": "string"
+    }
+}

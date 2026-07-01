@@ -1,0 +1,52 @@
+# ============================================================
+# OneShop — Integration Test Runner
+# Profile: "test"
+#
+# Usage:
+#   make test           — run full suite (requires core up)
+#   make test-core     — @core markers only
+#   make test-aiml      — @aiml  markers only (auto-starts Flask)
+#   make test-query     — @query markers only (auto-starts Trino)
+#   make test-ci        — CI mode with exit-code propagation
+# ============================================================
+
+services:
+
+  test-runner:
+    build:
+      context: ./tests
+    container_name: test-runner
+    profiles: ["test"]
+    networks:
+      - oneshop-network
+    volumes:
+      - ./tests:/app
+    # Wait for the always-on services to pass their healthchecks before
+    # pytest starts. Profile-gated services (Flask, Trino) use fixture-level
+    # TCP probes with graceful pytest.skip() instead.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      # ── Service endpoints (internal Docker DNS) ───────────────────────────
+      TEST_POSTGRES_HOST: postgres
+      TEST_POSTGRES_PORT: 5432
+      TEST_MINIO_HOST: minio:9000
+      TEST_FLASK_HOST: flask-recommendation:5050
+      TEST_KAFKA_HOST: kafka:9092
+      TEST_TRINO_HOST: trino:8080
+      TEST_SCHEMA_REGISTRY_HOST: schema-registry:8081
+      TEST_AIRFLOW_HOST: airflow-webserver:8080
+      TEST_CLICKHOUSE_HOST: clickhouse:8123
+      # ── Credentials (injected from .env via docker compose) ───────────────
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}

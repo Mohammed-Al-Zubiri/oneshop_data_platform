@@ -1,0 +1,104 @@
+site_name: OneShop Data Platform
+site_description: Production-grade data engineering platform built on Apache open-source projects — batch, streaming, ML, and observability on a unified Lakehouse.
+site_url: https://mohammed-al-zubiri.github.io/oneshop_data_platform/
+repo_url: https://github.com/Mohammed-Al-Zubiri/oneshop_data_platform
+repo_name: oneshop_data_platform
+docs_dir: docs/docs
+site_dir: docs/site
+edit_uri: ""
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/database
+  favicon: assets/favicon.png
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+plugins:
+  - search:
+      lang: en
+  - tags
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - toc:
+      permalink: true
+      title: On this page
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - Modules:
+      - "Batch Pipeline": modules/batch.md
+      - "Real-Time Pipeline": modules/realtime.md
+      - "ML & AI": modules/ml.md
+      - Observability: modules/observability.md
+  - Data Model: data-model.md
+  - Testing: testing.md
+  - Reference:
+      - Make Commands: reference/make-commands.md
+      - Service Endpoints: reference/service-endpoints.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Mohammed-Al-Zubiri/oneshop_data_platform
+  generator: false
+
+extra_css:
+  - assets/extra.css
