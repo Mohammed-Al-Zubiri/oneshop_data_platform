@@ -238,9 +238,69 @@ make docs   # Serves at http://localhost:8000
 
 ---
 
-## References
+## 📚 Based On — And What I Built Beyond It
 
-Based on [*Practical Data Engineering with Apache Projects*](https://link.springer.com/book/10.1007/979-8-8688-2142-4) by Dunith Danushka (Apress, 2025).
+This platform is grounded in the reference architecture from
+[*Practical Data Engineering with Apache Projects*](https://link.springer.com/book/10.1007/979-8-8688-2142-4)
+by Dunith Danushka (Apress, 2025), which walks through ten standalone data
+engineering pipelines for the fictional OneShop e-commerce company using
+Apache Spark, Iceberg, Kafka, Flink, Airflow, and more.
+
+**The book structures each pipeline as an independent, chapter-scoped Docker
+Compose project.** I took those ten isolated environments and re-engineered
+them into a single, cohesive platform — sharing the same source database,
+Kafka backbone, and Iceberg Lakehouse across every module. Beyond the
+consolidation itself, I designed and implemented the following enhancements
+that are not covered in the book:
+
+- **Modular 12-File Docker Compose with composite profiles.** The book's
+  approach requires booting a separate, full Docker environment per chapter.
+  I refactored the infrastructure into 12 fine-grained Compose files activated
+  via named profiles, coordinated by a dependency-aware `Makefile`. A developer
+  working on the batch pipeline starts only what batch needs — Flink, ClickHouse,
+  and OpenSearch stay down, preserving RAM.
+
+- **Airflow Dataset-driven DAG chaining.** The book implements a single
+  Airflow DAG (`user_engagement_segments`) on a `@daily` cron schedule. I
+  extended this into a full orchestration layer of six DAGs — five of which use
+  [Airflow Datasets](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/datasets.html)
+  to chain automatically on data-readiness events rather than fixed clock
+  intervals. `bronze_to_silver` fires when `lakehouse_hydration` writes new
+  Bronze data; Gold refresh fires when Silver updates — no wasted Spark jobs
+  on unchanged data.
+
+- **Automated ML retraining pipeline.** The book runs ALS feature engineering
+  and model training as manually executed Spark scripts. I wired both jobs into
+  a dedicated `ml_training_pipeline` Airflow DAG on a `@weekly` schedule,
+  with a `PythonSensor` that blocks training until Silver data is confirmed
+  available, and runs embedding generation in parallel with ALS training.
+
+- **Great Expectations data quality gate.** The book does not include a data
+  quality layer. I added a Great Expectations checkpoint that runs as the first
+  task in the `bronze_to_silver` DAG. If any expectation fails (null IDs, out-
+  of-range amounts, type errors), the task raises a failure and the DAG halts —
+  Silver transformation never runs, protecting downstream Gold tables and ML
+  features from bad source data.
+
+- **Prometheus + Grafana observability stack.** Not covered in the book. I built
+  a unified monitoring layer that scrapes seven targets — Kafka JVM (via JMX
+  agent delivered through a named Docker volume), consumer group lag, Flink
+  JobManager and TaskManager, Airflow (bridged from UDP StatsD via
+  `statsd-exporter`), ClickHouse, and Flask. Four auto-provisioned Grafana
+  dashboards and Alertmanager alert rules round out the stack.
+
+- **Containerized integration test suite and CI pipeline.** The book has no
+  testing framework. I implemented a `pytest` suite that runs inside a dedicated
+  container on the internal Docker network, with graceful-skip fixtures so any
+  module subset can be tested without booting the full platform. A GitHub
+  Actions workflow runs lint, Compose validation across all profiles, Prometheus
+  rule checking, and the integration tests on every push to `main`.
+
+- **Presigned MinIO download URL in marketing email.** The book's
+  `EmailOperator` sends a plain file path string to the marketing team. I replaced
+  this with a 7-day presigned MinIO object URL embedded as a styled button in
+  the HTML email body — so the marketing team can download the segments CSV
+  directly without needing access to the data platform.
 
 ---
 
