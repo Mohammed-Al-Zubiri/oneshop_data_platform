@@ -3,7 +3,7 @@
 <div class="hero-banner">
   <h1>🏪 OneShop Data Platform</h1>
   <p class="subtitle">
-    A production-grade data engineering platform built on Apache open-source projects —
+    A local reference implementation of production data engineering patterns, built on Apache open-source projects —
     batch, real-time streaming, and ML/AI pipelines on a single Lakehouse architecture.
   </p>
   <div class="hero-badges">

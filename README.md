@@ -1,6 +1,6 @@
 # 🏪 OneShop Data Platform
 
-> A **production-grade data engineering platform** built on Apache open-source projects, implementing batch processing, real-time streaming, and ML/AI pipelines on a unified Lakehouse architecture.
+> A **local reference implementation of production data engineering patterns** — batch processing, real-time streaming, and ML/AI pipelines on a unified Lakehouse architecture, built entirely on Apache open-source projects.
 
 [![CI Pipeline](https://github.com/Mohammed-Al-Zubiri/oneshop_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohammed-Al-Zubiri/oneshop_data_platform/actions)
 
